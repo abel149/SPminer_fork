@@ -1,0 +1,23 @@
+[33mcommit ce616d39f35195dd70237e27c22ece2e80b3b911[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: [1;31mabel[m <ashenafi[1;31mabel[m49@gmail.com>
+Commit: abel <ashenafiabel49@gmail.com>
+
+    fix on standardizing graph
+
+[33mcommit 7b902acbc9ac3d2057d7972f0d7890456b2955e4[m
+Author: [1;31mabel[m <ashenafi[1;31mabel[m49@gmail.com>
+Commit: abel <ashenafiabel49@gmail.com>
+
+    multiprocessing the convert to netowrx function
+
+[33mcommit 4a0283d67d4f54d0d6951362731db0f7a27d432b[m
+Author: [1;31mabel[m <ashenafi[1;31mabel[m49@gmail.com>
+Commit: abel <ashenafiabel49@gmail.com>
+
+    standardizing the nx graph
+
+[33mcommit ebaad6dcd2715f5d7efdac98bef10da37d77b5f0[m
+Author: [1;31mabel[m <ashenafi[1;31mabel[m49@gmail.com>
+Commit: abel <ashenafiabel49@gmail.com>
+
+    multiprocessing the counter

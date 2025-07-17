@@ -405,6 +405,22 @@ def main():
         dataset = [graph]
         task = 'graph'
         print(f"Loaded Networkx graph with {graph.number_of_nodes()} nodes and {graph.number_of_edges()} edges")
+    elif args.dataset.endswith('.mtx'):
+        with open(args.dataset, 'r') as f:
+            lines = f.readlines()
+
+        lines = [line.strip() for line in lines if not line.startswith('%') and line.strip()]
+        num_nodes, _, num_edges = map(int, lines[0].split())
+
+        graph = nx.Graph()
+        for line in lines[1:]:
+            u, v = map(int, line.split())
+            graph.add_edge(u, v)
+
+        dataset = [graph]
+        task = 'graph'
+        print(f"Loaded MTX graph with {graph.number_of_nodes()} nodes and {graph.number_of_edges()} edges")
+
     elif args.dataset == 'enzymes':
         dataset = TUDataset(root='/tmp/ENZYMES', name='ENZYMES')
         task = 'graph'
