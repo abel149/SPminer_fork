@@ -42,6 +42,7 @@ import pickle
 import torch.multiprocessing as mp
 from sklearn.decomposition import PCA
 from itertools import combinations
+from functools import partial
 
 # Increase timeout for large graphs
 MAX_SEARCH_TIME = 1800  # 30 minutes for large graph processing
@@ -102,6 +103,7 @@ def arg_parse():
     parser.add_argument('--batch_size', type=int, default=500, help='Batch size for processing')
     parser.add_argument('--timeout', type=int, default=MAX_SEARCH_TIME, help='Timeout per task in seconds')
     parser.add_argument('--use_sampling', action="store_true", help='Use node sampling for very large graphs')
+    parser.add_argument("--directed", action="store_true", help="Use directed graphs")
     parser.set_defaults(dataset="enzymes",
                        queries_path="results/out-patterns.p",
                        out_path="results/counts.json",
@@ -111,42 +113,42 @@ def arg_parse():
                        preserve_labels=False)
     return parser.parse_args()
 
-def load_networkx_graph(filepath):
-    """Load a Networkx graph from pickle format with proper attributes handling."""
+def load_networkx_graph(filepath, directed=False):
+    """Load a Networkx (Di)Graph from pickle format with proper attributes handling."""
     with open(filepath, 'rb') as f:
         data = pickle.load(f)
-        graph = nx.Graph()
+        graph = nx.DiGraph() if directed else nx.Graph()
         
         # Add nodes with their attributes
         for node in data['nodes']:
             if isinstance(node, tuple):
-                # Format: (node_id, attribute_dict)
                 node_id, attrs = node
                 graph.add_node(node_id, **attrs)
             else:
-                # Format: just node_id
                 graph.add_node(node)
-        
+
         # Add edges with their attributes
         for edge in data['edges']:
             if len(edge) == 3:
-                # Format: (src, dst, attribute_dict)
                 src, dst, attrs = edge
                 graph.add_edge(src, dst, **attrs)
             else:
-                # Format: just (src, dst)
                 src, dst = edge[:2]
                 graph.add_edge(src, dst)
-                
+        
         return graph
 
+from networkx.algorithms import isomorphism as iso
+import time
+import networkx as nx
+
+MAX_MATCHES_PER_QUERY = 1000  # or whatever limit you want
+
 def count_graphlets_helper(inp):
-    """Worker function to count pattern occurrences with better timeout handling."""
-    i, query, target, method, node_anchored, anchor_or_none, preserve_labels, timeout = inp
+    """Worker function to count pattern occurrences with better timeout handling and directed graph support."""
+    i, query, target, method, node_anchored, anchor_or_none, preserve_labels, timeout, directed = inp
     
     start_time = time.time()
-    
-    # Set a maximum execution time - shorter than the given timeout
     effective_timeout = min(timeout, 600)  # Max 10 minutes per task
     
     # Quick stats check before proceeding
@@ -160,23 +162,22 @@ def count_graphlets_helper(inp):
     query.remove_edges_from(nx.selfloop_edges(query))
     target = target.copy()
     target.remove_edges_from(nx.selfloop_edges(target))
-
+    
     count = 0
     try:
-        # Use signal-based timeout to ensure we don't get stuck
-        # This will only work on Unix-based systems
         import signal
         
         def timeout_handler(signum, frame):
             raise TimeoutError(f"Task {i} timed out after {effective_timeout} seconds")
-            
-        # Set the signal handler and a alarm
+        
         signal.signal(signal.SIGALRM, timeout_handler)
         signal.alarm(effective_timeout)
         
-        # Pre-compute query stats for method "freq"
+        # Choose matcher class based on directed flag
+        MatcherClass = iso.DiGraphMatcher if directed else iso.GraphMatcher
+        
         if method == "freq":
-            ismags = nx.isomorphism.ISMAGS(query, query)
+            ismags = MatcherClass(query, query)
             n_symmetries = len(list(ismags.isomorphisms_iter(symmetry=False)))
         
         if method == "bin":
@@ -185,41 +186,39 @@ def count_graphlets_helper(inp):
                 target.nodes[anchor_or_none]["anchor"] = 1
                 
                 if preserve_labels:
-                    # Use lambda functions to properly match node and edge attributes
-                    matcher = iso.GraphMatcher(target, query,
-                        node_match=lambda n1, n2: (n1.get("anchor") == n2.get("anchor") and
-                                                  n1.get("label") == n2.get("label")),
+                    matcher = MatcherClass(target, query,
+                        node_match=lambda n1, n2: (n1.get("anchor") == n2.get("anchor") and n1.get("label") == n2.get("label")),
                         edge_match=lambda e1, e2: e1.get("type") == e2.get("type"))
                 else:
-                    matcher = iso.GraphMatcher(target, query,
+                    matcher = MatcherClass(target, query,
                         node_match=iso.categorical_node_match(["anchor"], [0]))
                 
                 if time.time() - start_time > timeout:
                     print(f"Timeout on query {i} before isomorphism check")
                     return i, 0
                 
-                # Perform isomorphism check
                 count = int(matcher.subgraph_is_isomorphic())
             else:
                 if preserve_labels:
-                    matcher = iso.GraphMatcher(target, query,
+                    matcher = MatcherClass(target, query,
                         node_match=lambda n1, n2: n1.get("label") == n2.get("label"),
                         edge_match=lambda e1, e2: e1.get("type") == e2.get("type"))
                 else:
-                    matcher = iso.GraphMatcher(target, query)
+                    matcher = MatcherClass(target, query)
                 
                 if time.time() - start_time > timeout:
                     print(f"Timeout on query {i} before isomorphism check")
                     return i, 0
                 
                 count = int(matcher.subgraph_is_isomorphic())
+        
         elif method == "freq":
             if preserve_labels:
-                matcher = iso.GraphMatcher(target, query,
+                matcher = MatcherClass(target, query,
                     node_match=lambda n1, n2: n1.get("label") == n2.get("label"),
                     edge_match=lambda e1, e2: e1.get("type") == e2.get("type"))
             else:
-                matcher = iso.GraphMatcher(target, query)
+                matcher = MatcherClass(target, query)
             
             count = 0
             for _ in matcher.subgraph_isomorphisms_iter():
@@ -233,8 +232,7 @@ def count_graphlets_helper(inp):
             if method == "freq" and n_symmetries > 0:
                 count = count / n_symmetries
         
-        # Cancel the alarm
-        signal.alarm(0)
+        signal.alarm(0)  # cancel alarm
             
     except TimeoutError as e:
         print(f"Task {i} timed out: {str(e)}")
@@ -242,11 +240,11 @@ def count_graphlets_helper(inp):
     except Exception as e:
         print(f"Error processing query {i}: {str(e)}")
         count = 0
-        
+    
     processing_time = time.time() - start_time
-    if processing_time > 10:  # Only log if it took significant time
+    if processing_time > 10:
         print(f"Query {i} processed in {processing_time:.2f} seconds with count {count}")
-        
+    
     return i, count
 
 def save_checkpoint(n_matches, checkpoint_file):
@@ -363,7 +361,7 @@ def count_graphlets(queries, targets, args):
                     
                 for anchor in anchors:
                     inp.append((i, query, target, args.count_method, args.node_anchored, anchor, 
-                             args.preserve_labels, args.timeout))
+                             args.preserve_labels, args.timeout , args.directed))
             else:
                 inp.append((i, query, target, args.count_method, args.node_anchored, None, 
                          args.preserve_labels, args.timeout))
@@ -464,10 +462,11 @@ def generate_one_baseline(args):
     print(f"[WARN] Baseline not found for query {i} after {MAX_ATTEMPTS} attempts.")
     return nx.Graph()  # Return empty graph if failed
 
-def convert_to_networkx(graph):
-    if isinstance(graph, nx.Graph):
+def convert_to_networkx(graph, directed=False):
+    if isinstance(graph, (nx.Graph, nx.DiGraph)):
         return graph
-    return pyg_utils.to_networkx(graph).to_undirected()
+    return pyg_utils.to_networkx(graph, to_undirected=not directed)
+
     
 def gen_baseline_queries(queries, targets, method="radial", node_anchored=False):
     print(f"Generating {len(queries)} baseline queries in parallel using method: {method}")
@@ -491,7 +490,7 @@ def main():
     if args.dataset.endswith('.pkl'):
         print(f"Loading Networkx graph from {args.dataset}")
         try:
-            graph = load_networkx_graph(args.dataset)
+            graph = load_networkx_graph(args.dataset, directed=args.directed)
            #print(f"Loaded Networkx graph with {graph.number_of_nodes()} nodes and {graph.number_of_edges()} edges")
             dataset = [graph]
         except Exception as e:
@@ -534,8 +533,12 @@ def main():
         dataset = TUDataset(root='/tmp/ENZYMES', name='ENZYMES')
 
     #call convert to graph function
+    #use partial to pass the directed flag 
+    convert = partial(convert_to_networkx, directed=args.directed)
+
     with Pool(processes=args.n_workers) as pool:
-        targets = pool.map(convert_to_networkx, dataset)
+        targets = pool.map(convert, dataset)
+
 
     # Load query patterns
     if args.dataset != "analyze":

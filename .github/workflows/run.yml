@@ -94,6 +94,7 @@ jobs:
                 --out_path=results/ \
                 --node_anchored \
                 --preserve_labels
+                --directed
               echo 'Counting completed.'
               ls -la /app/results
             "
