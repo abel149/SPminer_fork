@@ -112,15 +112,24 @@ def arg_parse():
                        baseline="none",
                        preserve_labels=False)
     return parser.parse_args()
+import pickle
+import networkx as nx
 
 def load_networkx_graph(filepath, directed=False):
-    """Load a Networkx (Di)Graph from pickle format with proper attributes handling."""
+    """Load a NetworkX (Di)Graph from pickle format, or return if already a graph."""
+
     with open(filepath, 'rb') as f:
         data = pickle.load(f)
+
+        # If already a NetworkX graph, return it directly
+        if isinstance(data, (nx.Graph, nx.DiGraph)):
+            return data
+
+        # Otherwise, build the graph manually
         graph = nx.DiGraph() if directed else nx.Graph()
-        
+
         # Add nodes with their attributes
-        for node in data['nodes']:
+        for node in data.get('nodes', []):
             if isinstance(node, tuple):
                 node_id, attrs = node
                 graph.add_node(node_id, **attrs)
@@ -128,14 +137,14 @@ def load_networkx_graph(filepath, directed=False):
                 graph.add_node(node)
 
         # Add edges with their attributes
-        for edge in data['edges']:
+        for edge in data.get('edges', []):
             if len(edge) == 3:
                 src, dst, attrs = edge
                 graph.add_edge(src, dst, **attrs)
             else:
                 src, dst = edge[:2]
                 graph.add_edge(src, dst)
-        
+
         return graph
 
 from networkx.algorithms import isomorphism as iso
