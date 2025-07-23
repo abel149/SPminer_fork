@@ -77,7 +77,7 @@ jobs:
               echo 'Checking output directories...'
               ls -la /app/plots/cluster
               ls -la /app/results
-              "
+                "
       - name: Run pattern counter in Docker container
         run: |
           docker run --rm \
@@ -88,10 +88,10 @@ jobs:
               set -e
               export PYTHONPATH=/app
               echo 'Running pattern counter...'
-              python -m analyze.count_patterns \ 
+              python -m analyze.count_patterns \
                 --dataset=metta.pkl \
                 --queries_path=results/patterns.pkl \
-                --out_path=results/ \
+                --out_path=results/counts.json \
                 --node_anchored \
                 --preserve_labels \
                 --directed
