@@ -93,8 +93,7 @@ jobs:
                 --queries_path=results/patterns.pkl \
                 --out_path=results/counts.json \
                 --node_anchored \
-                --preserve_labels \
-                --directed
+                --preserve_labels
               echo 'Counting completed.'
               ls -la /app/results
             "
