@@ -120,14 +120,13 @@ def load_networkx_graph(filepath, directed=False):
         data = pickle.load(f)
 
         if isinstance(data, nx.Graph):
-            # Already a NetworkX graph, check if type matches
-            if directed and not data.is_directed():
+            # Ensure graph is of correct direction
+            if directed:
                 return data.to_directed()
-            elif not directed and data.is_directed():
+            else:
                 return data.to_undirected()
-            return data
 
-        # Otherwise, assume it's a dict with 'nodes' and 'edges'
+        # Fallback: custom dict format
         graph = nx.DiGraph() if directed else nx.Graph()
 
         for node in data['nodes']:
