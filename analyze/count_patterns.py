@@ -114,30 +114,30 @@ def arg_parse():
     return parser.parse_args()
 import pickle
 import networkx as nx
-
 def load_networkx_graph(filepath, directed=False):
-    """Load a NetworkX (Di)Graph from pickle format, or return if already a graph."""
-
+    """Load a NetworkX (Di)Graph from file or dictionary."""
     with open(filepath, 'rb') as f:
         data = pickle.load(f)
 
-        # If already a NetworkX graph, return it directly
-        if isinstance(data, (nx.Graph, nx.DiGraph)):
+        if isinstance(data, nx.Graph):
+            # Already a NetworkX graph, check if type matches
+            if directed and not data.is_directed():
+                return data.to_directed()
+            elif not directed and data.is_directed():
+                return data.to_undirected()
             return data
 
-        # Otherwise, build the graph manually
+        # Otherwise, assume it's a dict with 'nodes' and 'edges'
         graph = nx.DiGraph() if directed else nx.Graph()
 
-        # Add nodes with their attributes
-        for node in data.get('nodes', []):
+        for node in data['nodes']:
             if isinstance(node, tuple):
                 node_id, attrs = node
                 graph.add_node(node_id, **attrs)
             else:
                 graph.add_node(node)
 
-        # Add edges with their attributes
-        for edge in data.get('edges', []):
+        for edge in data['edges']:
             if len(edge) == 3:
                 src, dst, attrs = edge
                 graph.add_edge(src, dst, **attrs)
