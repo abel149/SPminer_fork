@@ -103,7 +103,7 @@ def arg_parse():
     parser.add_argument('--batch_size', type=int, default=500, help='Batch size for processing')
     parser.add_argument('--timeout', type=int, default=MAX_SEARCH_TIME, help='Timeout per task in seconds')
     parser.add_argument('--use_sampling', action="store_true", help='Use node sampling for very large graphs')
-    parser.add_argument("--directed", action="store_true", help="Use directed graphs")
+    parser.add_argument('--directed', action="store_true", help="Use directed graphs")
     parser.set_defaults(dataset="enzymes",
                        queries_path="results/out-patterns.pkl",
                        out_path="results/counts.json",
@@ -364,7 +364,7 @@ def count_graphlets(queries, targets, args):
                              args.preserve_labels, args.timeout , args.directed))
             else:
                 inp.append((i, query, target, args.count_method, args.node_anchored, None, 
-                         args.preserve_labels, args.timeout))
+                         args.preserve_labels, args.timeout, args.directed))
     
     print(f"Generated {len(inp)} tasks after filtering")
     n_done = 0
