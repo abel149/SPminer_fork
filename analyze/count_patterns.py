@@ -105,7 +105,7 @@ def arg_parse():
     parser.add_argument('--use_sampling', action="store_true", help='Use node sampling for very large graphs')
     parser.add_argument("--directed", action="store_true", help="Use directed graphs")
     parser.set_defaults(dataset="enzymes",
-                       queries_path="results/out-patterns.p",
+                       queries_path="results/out-patterns.pkl",
                        out_path="results/counts.json",
                        n_workers=4,
                        count_method="bin",
