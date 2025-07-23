@@ -115,35 +115,29 @@ def arg_parse():
 import pickle
 import networkx as nx
 def load_networkx_graph(filepath, directed=False):
-    """Load a NetworkX (Di)Graph from file or dictionary."""
     with open(filepath, 'rb') as f:
         data = pickle.load(f)
 
-        if isinstance(data, nx.Graph):
-            # Ensure graph is of correct direction
-            if directed:
-                return data.to_directed()
-            else:
-                return data.to_undirected()
+        if isinstance(data, (nx.Graph, nx.DiGraph)):
+            graph = data
+            if directed and not graph.is_directed():
+                graph = graph.to_directed()
+            elif not directed and graph.is_directed():
+                graph = graph.to_undirected()
+            return graph
 
-        # Fallback: custom dict format
+        # Fallback if it's raw dict of nodes/edges
         graph = nx.DiGraph() if directed else nx.Graph()
-
         for node in data['nodes']:
             if isinstance(node, tuple):
-                node_id, attrs = node
-                graph.add_node(node_id, **attrs)
+                graph.add_node(node[0], **node[1])
             else:
                 graph.add_node(node)
-
         for edge in data['edges']:
             if len(edge) == 3:
-                src, dst, attrs = edge
-                graph.add_edge(src, dst, **attrs)
+                graph.add_edge(edge[0], edge[1], **edge[2])
             else:
-                src, dst = edge[:2]
-                graph.add_edge(src, dst)
-
+                graph.add_edge(edge[0], edge[1])
         return graph
 
 from networkx.algorithms import isomorphism as iso
