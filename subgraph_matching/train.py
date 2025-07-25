@@ -51,6 +51,7 @@ def build_model(args):
             map_location=utils.get_device()))
     return model
 
+
 def make_data_source(args):
     toks = args.dataset.split("-")
     if toks[0] == "syn":
@@ -62,6 +63,13 @@ def make_data_source(args):
                 node_anchored=args.node_anchored)
         else:
             raise Exception("Error: unrecognized dataset")
+    elif toks[0] == "graph":
+        data_source = data.GeneGraphDataSource(
+            graph_pkl_path=args.graph_pkl_path,
+            node_anchored=args.node_anchored,
+            num_queries=args.num_queries if hasattr(args, "num_queries") else 32,
+            subgraph_hops=args.subgraph_hops if hasattr(args, "subgraph_hops") else 1
+        )
     else:
         if len(toks) == 1 or toks[1] == "balanced":
             data_source = data.DiskDataSource(toks[0],
