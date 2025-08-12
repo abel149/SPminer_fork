@@ -396,12 +396,52 @@ class GreedySearchAgent(SearchAgent):
                     self.counts[size][h].extend(graphs)
 
         return self.finish_search()
+    """
+  def finish_search(self):
+   
+    if self.analyze:
+        pass
+
+    cand_patterns_uniq = []
+    TOP_K = 3  # fixed number of patterns per pattern size
+
+    for pattern_size in range(self.min_pattern_size, self.max_pattern_size + 1):
+        if self.rank_method == "hybrid":
+            if self.counts[pattern_size]:
+                cur_rank_method = "margin" if len(max(
+                    self.counts[pattern_size].values(), key=len, default=[])) < 3 else "counts"
+            else:
+                cur_rank_method = "margin"
+        else:
+            cur_rank_method = self.rank_method
+
+        print(f"Ranking patterns of size {pattern_size} using method: '{cur_rank_method}'")
+
+        if cur_rank_method == "margin":
+            wl_hashes = set()
+            cands = self.cand_patterns[pattern_size]
+            cand_patterns_uniq_size = []
+            for score, pattern in sorted(cands, key=lambda x: x[0]):
+                wl_hash = utils.wl_hash(pattern, node_anchored=self.node_anchored)
+                if wl_hash not in wl_hashes:
+                    wl_hashes.add(wl_hash)
+                    cand_patterns_uniq_size.append(pattern)
+                    if len(cand_patterns_uniq_size) >= TOP_K:
+                        break
+            cand_patterns_uniq.extend(cand_patterns_uniq_size)
+
+        elif cur_rank_method == "counts":
+            sorted_counts = sorted(self.counts[pattern_size].items(), key=lambda x: len(x[1]), reverse=True)
+            for _, neighs in sorted_counts[:TOP_K]:
+                cand_patterns_uniq.append(random.choice(neighs))
+        else:
+            print("Unrecognized rank method")
+                
+    return cand_patterns_uniq
+
 
     def finish_search(self):
-        """
-        Processes the aggregated results from all trials to find the most frequent patterns.
-        This method remains unchanged.
-        """
+       
         if self.analyze:
             pass
 
@@ -438,6 +478,50 @@ class GreedySearchAgent(SearchAgent):
             else:
                 print("Unrecognized rank method")
                 
+        return cand_patterns_uniq
+          """
+    def finish_search(self):
+        """
+        Processes the aggregated results from all trials to find the top 3 patterns per pattern size.
+        """
+        if self.analyze:
+            pass  # Add analysis code here if needed
+
+        cand_patterns_uniq = []
+        for pattern_size in range(self.min_pattern_size, self.max_pattern_size + 1):
+            if self.rank_method == "hybrid":
+                if self.counts[pattern_size]:
+                    cur_rank_method = "margin" if len(max(
+                        self.counts[pattern_size].values(), key=len, default=[])) < 3 else "counts"
+                else:
+                    cur_rank_method = "margin"
+            else:
+                cur_rank_method = self.rank_method
+
+            print(f"Ranking patterns of size {pattern_size} using method: '{cur_rank_method}'")
+
+            if cur_rank_method == "margin":
+                wl_hashes = set()
+                cands = self.cand_patterns[pattern_size]
+                cand_patterns_uniq_size = []
+                for score, pattern in sorted(cands, key=lambda x: x[0]):
+                    wl_hash = utils.wl_hash(pattern, node_anchored=self.node_anchored)
+                    if wl_hash not in wl_hashes:
+                        wl_hashes.add(wl_hash)
+                        cand_patterns_uniq_size.append(pattern)
+                        if len(cand_patterns_uniq_size) >= 3:  # limit to top 3
+                            break
+                cand_patterns_uniq.extend(cand_patterns_uniq_size)
+
+            elif cur_rank_method == "counts":
+                sorted_counts = sorted(self.counts[pattern_size].items(), key=lambda x: len(x[1]), reverse=True)
+                top_patterns = sorted_counts[:3]  # strictly top 3
+                for _, neighs in top_patterns:
+                    cand_patterns_uniq.append(random.choice(neighs))
+
+            else:
+                print("Unrecognized rank method")
+
         return cand_patterns_uniq
 
 class MemoryEfficientGreedyAgent(GreedySearchAgent):
